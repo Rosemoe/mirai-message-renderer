@@ -1,10 +1,15 @@
 package io.github.rosemoe.msgRenderer
 
-class Row(val top: Int, val textLineHeight: Int) {
+import io.github.rosemoe.msgRenderer.render.ElementRenderNode
+
+/**
+ * Row object for managing render nodes on a single line
+ */
+internal class Row(val top: Int, textLineHeight: Int) {
 
     var height = textLineHeight
 
-    val elements = mutableListOf<DelayedElementRender>()
+    val elements = mutableListOf<ElementRenderNode>()
 
     var width = 0
 
@@ -20,7 +25,7 @@ class Row(val top: Int, val textLineHeight: Int) {
         height = newHeight
     }
 
-    fun addElement(element: DelayedElementRender, elementWidth: Int, elementHeight: Int) {
+    fun addElement(element: ElementRenderNode, elementWidth: Int, elementHeight: Int) {
         elements.add(element)
         width += elementWidth
         if (elementHeight > height) {

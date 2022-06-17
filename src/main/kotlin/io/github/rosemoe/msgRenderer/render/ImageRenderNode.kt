@@ -1,10 +1,9 @@
-package io.github.rosemoe.msgRenderer
+package io.github.rosemoe.msgRenderer.render
 
 import java.awt.Graphics2D
 import java.awt.Image
-import java.awt.image.BufferedImage
 
-class DelayedImageRender(x: Int, y: Int, val width: Int, val image: Image) : DelayedElementRender(x, y) {
+class ImageRenderNode(x: Int, y: Int, val width: Int, val image: Image) : ElementRenderNode(x, y) {
 
     override fun renderInto(g: Graphics2D) {
         if (width != image.getWidth(null)) {

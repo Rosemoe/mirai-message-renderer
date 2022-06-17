@@ -1,10 +1,8 @@
 package io.github.rosemoe.msgRenderer
 
-import net.mamoe.mirai.contact.Contact
-import net.mamoe.mirai.message.code.MiraiCode
+import io.github.rosemoe.msgRenderer.render.*
 import net.mamoe.mirai.message.data.*
 import java.awt.*
-import java.awt.font.FontRenderContext
 import java.awt.geom.Area
 import java.awt.geom.RoundRectangle2D
 import java.awt.image.BufferedImage
@@ -13,16 +11,77 @@ import net.mamoe.mirai.message.data.Image as MiraiImage
 
 class MessageRenderer(private val params: RenderParams = RenderParams()) {
 
-    fun renderMessage(message: String, contact: Contact? = null, dataProvider: DataProvider): Image {
-        return renderMessage(MiraiCode.deserializeMiraiCode(message, contact), dataProvider)
+    fun renderMessages(
+        messages: List<MessageInfo>,
+        dataProvider: DataProvider
+    ): Image {
+        val layouts = mutableListOf<GeneratedLayout>()
+        var height = 0
+        messages.forEach {
+            val info = it.user
+            layouts.add(
+                generateLayout(
+                    it.message,
+                    dataProvider,
+                    info.avatar,
+                    info.nickname,
+                    info.title,
+                    it.isReceivedMessage
+                ).also {
+                    height += it.height
+                })
+        }
+        val image = BufferedImage(params.multiMsgWidth, height, BufferedImage.TYPE_4BYTE_ABGR)
+        val g = image.createGraphics()
+        g.enableAntialias()
+        var y = 0
+        for (i in 0 until layouts.size) {
+            val isReceive = messages[i].isReceivedMessage
+            val layout = layouts[i]
+            if (!isReceive) {
+                layout.translate(params.multiMsgWidth - layout.width, y)
+            } else {
+                layout.translate(0, y)
+            }
+            y += layout.height
+            layout.renderInto(g)
+        }
+        g.dispose()
+        return image
     }
 
     fun renderMessage(
         message: Message,
         dataProvider: DataProvider,
+        userInfo: UserInfo,
+        isReceivedMessage: Boolean = true
+    ) = renderMessage(message, dataProvider, userInfo.avatar, userInfo.nickname, userInfo.title, isReceivedMessage)
+
+    fun renderMessage(
+        message: Message,
+        dataProvider: DataProvider,
         avatar: Image? = null,
-        nickname: String? = null
+        nickname: String? = null,
+        title: String? = null,
+        isReceivedMessage: Boolean = true
     ): Image {
+        val layout = generateLayout(message, dataProvider, avatar, nickname, title, isReceivedMessage)
+        val image = BufferedImage(layout.width, layout.height, BufferedImage.TYPE_4BYTE_ABGR)
+        val g = image.createGraphics()
+        g.enableAntialias()
+        layout.renderInto(g)
+        g.dispose()
+        return image
+    }
+
+    private fun generateLayout(
+        message: Message,
+        dataProvider: DataProvider,
+        avatar: Image? = null,
+        nickname: String? = null,
+        title: String? = null,
+        isReceivedMessage: Boolean
+    ): GeneratedLayout {
         // Step 1. Collect elements
         val elements = collectMessageSegments(message)
         var x = 0
@@ -57,29 +116,39 @@ class MessageRenderer(private val params: RenderParams = RenderParams()) {
             }
         }
 
-        // Step 3. Determine the width of image
-        val layoutWidth = min(maxLayoutWidth, totalWidth.toInt())
-        val imageWidth = layoutWidth + params.commonMargin * 2 + avatarSize
-
-        // Step 4. Measure the nickname
-
+        // Step 3. Measure the nickname and title
+        var nicknameWidth = 0
         val nicknameHeight = if (nickname == null) {
             0
         } else {
             measureGraphics.font = params.nicknameTypeface
-            params.nicknameTypeface.getStringBounds(
+            val bounds = params.nicknameTypeface.getStringBounds(
                 nickname,
                 measureGraphics.fontRenderContext
-            ).height.toInt() + params.commonMargin / 2
+            )
+            nicknameWidth = bounds.width.toInt()
+            bounds.height.toInt() + params.commonMargin / 2
+        }
+        var titleWidth = 0
+        var titleRegionWidth = 0
+        if (title != null) {
+            measureGraphics.font = params.titleTypeface
+            titleWidth = measureGraphics.fontMetrics.stringWidth(title)
+            titleRegionWidth = titleWidth + params.commonMargin // actual margin is 0.5x
         }
 
+        // Step 4. Determine the width of image
+        val layoutWidth = min(maxLayoutWidth, totalWidth.toInt())
+        val imageWidth = Integer.max(layoutWidth, titleRegionWidth + nicknameWidth) + params.commonMargin * 2 + avatarSize
+
         // Step 5. Determine the height of image as well the position of objects
+        // Assume that nickname and avatar are placed at left
         x = params.commonMargin + avatarSize
         y = params.commonMargin + nicknameHeight
         measureGraphics.font = params.messageTypeface
         val lineHeight = measureGraphics.fontMetrics.height
         val baselineOffset = lineHeight - measureGraphics.fontMetrics.descent
-        val displayList = mutableListOf<DelayedElementRender>()
+        val displayList = mutableListOf<ElementRenderNode>()
 
         var layoutX = 0
         var layoutY = 0
@@ -117,19 +186,23 @@ class MessageRenderer(private val params: RenderParams = RenderParams()) {
                     if (lastWidth + layoutX > layoutWidth) {
                         len--
                     }
-                    len = Integer.max(1, len)
+                    len = Integer.max(0, len)
 
-                    val renderNode = DelayedTextRender(
+                    val renderNode = TextRenderNode(
                         x + layoutX,
                         row.bottom() - lineHeight + baselineOffset,
                         text.substring(begin, begin + len),
                         params.messageTypeface,
-                        colorForText(element)
+                        colorForText(element, isReceivedMessage)
                     )
                     displayList.add(renderNode)
 
                     val textWidth = measureGraphics.fontMetrics.charsWidth(chars, begin, len)
                     if (begin + len < length) {
+                        if (len == 0 && row.width == 0) {
+                            // Unable to place any text. Exit
+                            break
+                        }
                         layoutY += row.height
                         layoutX = 0
                         row = Row(y + layoutY, lineHeight)
@@ -151,7 +224,7 @@ class MessageRenderer(private val params: RenderParams = RenderParams()) {
                     layoutX = 0
                     row = Row(y + layoutY, lineHeight)
                 }
-                val renderNode = DelayedImageRender(x + layoutX, row.bottom() - renderHeight, renderWidth, image)
+                val renderNode = ImageRenderNode(x + layoutX, row.bottom() - renderHeight, renderWidth, image)
                 displayList.add(renderNode)
                 row.addElement(renderNode, renderWidth, renderHeight)
                 layoutX += renderWidth
@@ -160,61 +233,73 @@ class MessageRenderer(private val params: RenderParams = RenderParams()) {
         // Step 6. Create actual image and render
         val height =
             Integer.max(y + layoutY + row.height + params.commonMargin, params.commonMargin * 2 + params.avatarSize)
-        val image = BufferedImage(imageWidth, height, BufferedImage.TYPE_4BYTE_ABGR)
-        val g = image.createGraphics()
-        g.enableAntialias()
-        g.color = Color.WHITE
-        g.fillRect(0, 0, imageWidth, height)
-        g.color = Color.BLACK
+        val layout = GeneratedLayout(imageWidth, height)
+        layout.addElement(BackgroundRenderNode(0, 0, params.multiMsgWidth, height, params.backgroundColor))
+        val originStart = x
+        val targetStart = imageWidth - avatarSize - layoutWidth - params.commonMargin
+        val delta = targetStart - originStart
         if (avatar != null) {
-            g.drawImage(
-                avatar,
-                params.commonMargin / 2,
-                params.commonMargin / 2,
-                params.avatarSize,
-                params.avatarSize,
-                null
-            )
-            if (params.roundAvatar) {
-                val area = Area(
-                    Rectangle(
-                        params.commonMargin / 2,
-                        params.commonMargin / 2,
-                        params.avatarSize,
-                        params.avatarSize
-                    )
-                )
-                val radius = params.avatarSize
-                val round = RoundRectangle2D.Double(
-                    params.commonMargin / 2.0,
-                    params.commonMargin / 2.0,
-                    params.avatarSize.toDouble(),
-                    params.avatarSize.toDouble(),
-                    radius.toDouble(),
-                    radius.toDouble()
-                )
-                area.subtract(Area(round))
-                g.color = Color.WHITE
-                g.fill(area)
+            if (!isReceivedMessage) {
+                // Translate the message elements
+                displayList.forEach {
+                    it.x += delta
+                }
             }
+
+            layout.addElement(
+                AvatarRenderNode(
+                    if (isReceivedMessage) params.commonMargin / 2 else imageWidth - params.commonMargin / 2 - params.avatarSize,
+                    params.commonMargin / 2,
+                    params.avatarSize,
+                    params.roundAvatar,
+                    avatar
+                )
+            )
         }
         if (nickname != null) {
-            g.font = params.nicknameTypeface
-            g.color = Color.BLACK
-            g.drawString(nickname, x, 8 + g.fontMetrics.height - g.fontMetrics.descent)
+            measureGraphics.font = params.nicknameTypeface
+            layout.addElement(
+                TextRenderNode(
+                    if (isReceivedMessage) x + titleRegionWidth else imageWidth - avatarSize - params.commonMargin / 2,
+                    params.commonMargin / 2 + measureGraphics.fontMetrics.height - measureGraphics.fontMetrics.descent,
+                    nickname,
+                    params.nicknameTypeface,
+                    params.nicknameColor, !isReceivedMessage
+                )
+            )
         }
+        if (title != null) {
+            layout.addElement(
+                TitleRenderNode(
+                    if (isReceivedMessage) x else imageWidth - avatarSize - params.commonMargin - nicknameWidth,
+                    params.commonMargin / 2,
+                    params.titleBadgePadding,
+                    title,
+                    isReceivedMessage,
+                    params.titleTypeface,
+                    params.titleTextColor,
+                    params.titleBadgeColor
+                )
+            )
+        }
+
+        val balloonX = if (isReceivedMessage) x else x + delta
+        val layoutHeight = layoutY + row.height
         val v = params.commonMargin
-        g.color = Color(0xde, 0xde, 0xde)
-        g.fillRoundRect(x - v / 2, y - v / 2, layoutWidth + v * 2 / 3, layoutY + row.height + v, v / 2, v / 2)
-        g.color = Color.BLACK
+        layout.addElement(
+            MsgBalloonRenderNode(
+                balloonX - v / 2, y - v / 2, layoutWidth + v, layoutHeight + v, v / 2,
+                if (isReceivedMessage) params.balloonReceiveColor else params.balloonSendColor
+            )
+        )
         displayList.forEach {
-            it.renderInto(g)
+            layout.addElement(it)
         }
-        return image
+        return layout
     }
 
-    private fun colorForText(msg: SingleMessage): Color {
-        return if (msg is PlainText) Color.BLACK else Color.BLUE
+    private fun colorForText(msg: SingleMessage, isReceivedMessage: Boolean): Color {
+        return if (msg is PlainText) (if (isReceivedMessage) params.receivedMessageTextColor else params.sentMessageTextColor) else params.atTextColor
     }
 
     private fun Graphics2D.enableAntialias() {
