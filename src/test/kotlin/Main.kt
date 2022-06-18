@@ -20,7 +20,7 @@ fun main(args: Array<String>) {
         MessageInfo(
             messageChainOf(
                 PlainText("Test"),
-                PlainText("测试测试测试测试测试测试测试测试测试测试测试测试测试测试测试测试测试测试测试测试测试测试测试测试"),
+                PlainText("测试测试测试测试测试测试测试测试测试测试测试\n测试测试测试测试测试测试测试测试测试测试测试测试测试"),
                 At(123456),
                 AtAll,
                 MiraiImage("{00000000-0000-0000-0000-101F1EEBF5B5}.png"),
@@ -33,7 +33,7 @@ fun main(args: Array<String>) {
                 PlainText("ceshi!!!")
             ), UserInfo(avatar, "Rosemoe", "Rose")
         ),
-        MessageInfo(messageChainOf(PlainText("Awesome!")), UserInfo(avatar, "RosemoeX", "Rose2"), false)
+        MessageInfo(messageChainOf(PlainText("Awesome!\nWhere did you get the image?")), UserInfo(avatar, "RosemoeX", "Rose2"), false)
     )
     val fakeUser = UserInfo(avatar, "Rosemoe?", "Bot")
     for (i in 1..10) {

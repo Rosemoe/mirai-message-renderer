@@ -3,8 +3,6 @@ package io.github.rosemoe.msgRenderer
 import io.github.rosemoe.msgRenderer.render.*
 import net.mamoe.mirai.message.data.*
 import java.awt.*
-import java.awt.geom.Area
-import java.awt.geom.RoundRectangle2D
 import java.awt.image.BufferedImage
 import kotlin.math.min
 import net.mamoe.mirai.message.data.Image as MiraiImage
@@ -90,7 +88,8 @@ class MessageRenderer(private val params: RenderParams = RenderParams()) {
 
         // Step 2. Measure elements & obtain images
         val maxLayoutWidth = params.widthLimit - avatarSize - params.commonMargin * 2
-        var totalWidth = 0.0
+        var maxRowWidth = 0
+        var rowWidth = 0
         val blankImage = BufferedImage(1, 1, BufferedImage.TYPE_4BYTE_ABGR)
         val measureGraphics = blankImage.createGraphics()
         measureGraphics.enableAntialias()
@@ -98,7 +97,20 @@ class MessageRenderer(private val params: RenderParams = RenderParams()) {
         for (element in elements) {
             if (isMessageDisplayedAsText(element)) {
                 val text = if (element is At) dataProvider.getTextForAt(element) else element.contentToString()
-                totalWidth += params.messageTypeface.getStringBounds(text, measureGraphics.fontRenderContext).width
+                // Compute longest line
+                var first = true
+                text.lines().forEach {
+                    val textWidth = measureGraphics.fontMetrics.stringWidth(it)
+                    if (first) {
+                        rowWidth += textWidth
+                        first = false
+                    } else {
+                        rowWidth = textWidth
+                    }
+                    if (maxRowWidth < rowWidth) {
+                        maxRowWidth = rowWidth
+                    }
+                }
             } else {
                 val image = if (element is MiraiImage) {
                     dataProvider.getImageForMessage(element)
@@ -109,9 +121,24 @@ class MessageRenderer(private val params: RenderParams = RenderParams()) {
                 }
                 if (image == null) {
                     val text = element.contentToString()
-                    totalWidth += params.messageTypeface.getStringBounds(text, measureGraphics.fontRenderContext).width
+                    var first = true
+                    text.lines().forEach {
+                        val textWidth = measureGraphics.fontMetrics.stringWidth(it)
+                        if (first) {
+                            rowWidth += textWidth
+                            first = false
+                        } else {
+                            rowWidth = textWidth
+                        }
+                        if (maxRowWidth < rowWidth) {
+                            maxRowWidth = rowWidth
+                        }
+                    }
                 } else {
-                    totalWidth += Integer.min(image.getWidth(null), params.imageMaxWidth)
+                    rowWidth += Integer.min(image.getWidth(null), params.imageMaxWidth)
+                    if (rowWidth > maxRowWidth) {
+                        maxRowWidth = rowWidth
+                    }
                 }
             }
         }
@@ -138,7 +165,7 @@ class MessageRenderer(private val params: RenderParams = RenderParams()) {
         }
 
         // Step 4. Determine the width of image
-        val layoutWidth = min(maxLayoutWidth, totalWidth.toInt())
+        val layoutWidth = min(maxLayoutWidth, maxRowWidth)
         val imageWidth = Integer.max(layoutWidth, titleRegionWidth + nicknameWidth) + params.commonMargin * 2 + avatarSize
 
         // Step 5. Determine the height of image as well the position of objects
@@ -172,46 +199,56 @@ class MessageRenderer(private val params: RenderParams = RenderParams()) {
             }
             if (text != null) {
                 // Render the text
-                var begin = 0
-                var len = 0
-                val length = text.length
-                val chars = text.toCharArray()
-                var lastWidth = 0
-                while (begin < length) {
-                    while (begin + len < length && measureGraphics.fontMetrics.charsWidth(chars, begin, len)
-                            .also { lastWidth = it } + layoutX < layoutWidth
-                    ) {
-                        len++
-                    }
-                    if (lastWidth + layoutX > layoutWidth) {
-                        len--
-                    }
-                    len = Integer.max(0, len)
-
-                    val renderNode = TextRenderNode(
-                        x + layoutX,
-                        row.bottom() - lineHeight + baselineOffset,
-                        text.substring(begin, begin + len),
-                        params.messageTypeface,
-                        colorForText(element, isReceivedMessage)
-                    )
-                    displayList.add(renderNode)
-
-                    val textWidth = measureGraphics.fontMetrics.charsWidth(chars, begin, len)
-                    if (begin + len < length) {
-                        if (len == 0 && row.width == 0) {
-                            // Unable to place any text. Exit
-                            break
-                        }
+                var first = true
+                text.lines().forEach { line ->
+                    if (first) {
+                        first = false
+                    } else {
                         layoutY += row.height
                         layoutX = 0
                         row = Row(y + layoutY, lineHeight)
-                    } else {
-                        layoutX += textWidth
-                        row.addElement(renderNode, textWidth, lineHeight)
                     }
-                    begin += len
-                    len = 0
+                    var begin = 0
+                    var len = 0
+                    val length = line.length
+                    val chars = line.toCharArray()
+                    var lastWidth = 0
+                    while (begin < length) {
+                        while (begin + len < length && measureGraphics.fontMetrics.charsWidth(chars, begin, len)
+                                .also { lastWidth = it } + layoutX < layoutWidth
+                        ) {
+                            len++
+                        }
+                        if (lastWidth + layoutX > layoutWidth) {
+                            len--
+                        }
+                        len = Integer.max(0, len)
+
+                        val renderNode = TextRenderNode(
+                            x + layoutX,
+                            row.bottom() - lineHeight + baselineOffset,
+                            line.substring(begin, begin + len),
+                            params.messageTypeface,
+                            colorForText(element, isReceivedMessage)
+                        )
+                        displayList.add(renderNode)
+
+                        val textWidth = measureGraphics.fontMetrics.charsWidth(chars, begin, len)
+                        if (begin + len < length) {
+                            if (len == 0 && row.width == 0) {
+                                // Unable to place any text. Exit
+                                break
+                            }
+                            layoutY += row.height
+                            layoutX = 0
+                            row = Row(y + layoutY, lineHeight)
+                        } else {
+                            layoutX += textWidth
+                            row.addElement(renderNode, textWidth, lineHeight)
+                        }
+                        begin += len
+                        len = 0
+                    }
                 }
             }
             if (image != null) {
