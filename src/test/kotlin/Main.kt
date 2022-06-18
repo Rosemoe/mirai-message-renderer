@@ -28,7 +28,8 @@ fun main(args: Array<String>) {
                 MiraiImage(localImageId1),
                 MiraiImage(localImageId1),
                 MiraiImage(localImageId2),
-                PlainText("ceshi!!!")
+                PlainText("ceshi!!!"),
+                Face(Face.JING_KONG)
             )
             "RosemoeX" titled "RoseX" avatar avatar send "Awesome!\nWhere did you get the image?" at right
         }
@@ -77,7 +78,7 @@ fun main(args: Array<String>) {
             }
 
             override fun getImageForFace(face: Face): Image? {
-                return null
+                return FaceStore.loadFace(face)
             }
 
             override fun getTextForAt(at: At): String {
