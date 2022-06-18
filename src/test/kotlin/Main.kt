@@ -1,13 +1,9 @@
-import io.github.rosemoe.msgRenderer.DataProvider
-import io.github.rosemoe.msgRenderer.MessageInfo
-import io.github.rosemoe.msgRenderer.MessageRenderer
-import io.github.rosemoe.msgRenderer.UserInfo
+import io.github.rosemoe.msgRenderer.*
 import net.mamoe.mirai.message.data.*
 import java.awt.Image
 import java.awt.image.RenderedImage
 import java.io.File
 import java.io.FileOutputStream
-import java.lang.Math.abs
 import java.util.UUID
 import javax.imageio.ImageIO
 import kotlin.random.Random
@@ -16,27 +12,31 @@ import net.mamoe.mirai.message.data.Image as MiraiImage
 
 fun main(args: Array<String>) {
     val avatar = ImageIO.read(File("avatar.jpg"))
-    val msgs = arrayListOf(
-        MessageInfo(
-            messageChainOf(
+    val localImageId1 = "{00000000-0000-0000-0000-101F1EEBF5B5}.png"
+    val localImageId2 = "{00000000-0000-0000-0000-101F1EEBF5B6}.png"
+
+    // Build message info list by DSL
+    val messageInfos =
+        buildMessageInfo {
+            "Rosemoe" titled "Rose" avatar avatar send messageChainOf(
                 PlainText("Test"),
                 PlainText("测试测试测试测试测试测试测试测试测试测试测试\n测试测试测试测试测试测试测试测试测试测试测试测试测试"),
                 At(123456),
                 AtAll,
-                MiraiImage("{00000000-0000-0000-0000-101F1EEBF5B5}.png"),
-                MiraiImage("{00000000-0000-0000-0000-101F1EEBF5B5}.png"),
-                MiraiImage("{00000000-0000-0000-0000-101F1EEBF5B5}.png"),
-                MiraiImage("{00000000-0000-0000-0000-101F1EEBF5B5}.png"),
-                MiraiImage("{00000000-0000-0000-0000-101F1EEBF5B5}.png"),
-                MiraiImage("{00000000-0000-0000-0000-101F1EEBF5B5}.png"),
-                MiraiImage("{00000000-0000-0000-0000-101F1EEBF5B6}.png"),
+                MiraiImage(localImageId1),
+                MiraiImage(localImageId1),
+                MiraiImage(localImageId1),
+                MiraiImage(localImageId1),
+                MiraiImage(localImageId2),
                 PlainText("ceshi!!!")
-            ), UserInfo(avatar, "Rosemoe", "Rose")
-        ),
-        MessageInfo(messageChainOf(PlainText("Awesome!\nWhere did you get the image?")), UserInfo(avatar, "RosemoeX", "Rose2"), false)
-    )
-    val fakeUser = UserInfo(avatar, "Rosemoe?", "Bot")
-    for (i in 1..10) {
+            )
+            "RosemoeX" titled "RoseX" avatar avatar send "Awesome!\nWhere did you get the image?" at right
+        }
+
+
+    // Build message info normally
+    val botInfo = UserInfo(avatar, "Rosemoe?", "Bot")
+    for (i in 1..5) {
         // Generate messages
         val builder = MessageChainBuilder()
         for (j in 1..10) {
@@ -50,22 +50,29 @@ fun main(args: Array<String>) {
                 builder.add(MiraiImage("{00000000-0000-0000-0000-101F1EEBF5B5}.png"))
             } else {
                 // At
-                builder.add(At(abs(Random.nextLong(Long.MAX_VALUE))))
+                builder.add(At(Random.nextLong(10000L, 40000000000L)))
             }
         }
-        msgs.add(MessageInfo(builder.build(), fakeUser, Random.nextBoolean()))
+        messageInfos.add(MessageInfo(builder.build(), botInfo, Random.nextBoolean()))
     }
+
+    // Render image
     val image = MessageRenderer().renderMessages(
-        msgs,
+        messageInfos,
         object : DataProvider {
             val members = mapOf(
                 123456L to "Deleted Account"
             )
             val images = mutableMapOf<String, Image?>()
 
-            override fun getImageForMessage(image: net.mamoe.mirai.message.data.Image): Image? {
+            override fun getImageForMessage(image: MiraiImage): Image? {
                 return images.computeIfAbsent(image.imageId) { id ->
-                    ImageIO.read(File(id))
+                    val file = File(id)
+                    if (file.exists() && file.isFile) {
+                        ImageIO.read(file)
+                    } else {
+                        null
+                    }
                 }
             }
 
@@ -79,6 +86,8 @@ fun main(args: Array<String>) {
 
         }
     )
+
+    // Save to file
     ImageIO.write(
         image as RenderedImage,
         "png",
