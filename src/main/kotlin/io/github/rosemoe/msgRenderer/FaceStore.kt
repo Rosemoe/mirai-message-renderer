@@ -10,7 +10,7 @@ import javax.imageio.ImageIO
  */
 object FaceStore {
 
-    private var size = 40
+    private var size = 30
 
     private val faces by lazy {
         val map = HashMap<Int, Image?>()
