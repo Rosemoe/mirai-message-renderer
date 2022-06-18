@@ -11,6 +11,7 @@ import javax.imageio.ImageIO
 object FaceStore {
 
     private var size = 30
+    var enabled = true
 
     private val faces by lazy {
         val map = HashMap<Int, Image?>()
@@ -31,7 +32,7 @@ object FaceStore {
 
     @Synchronized
     fun loadFace(faceId: Int): Image? {
-        return faces[faceId]
+        return if (enabled) faces[faceId] else null
     }
 
     @Synchronized
@@ -43,7 +44,7 @@ object FaceStore {
     }
 
     @Synchronized
-    fun setImageSize(size: Int) {
+    fun setFaceSize(size: Int) {
         this.size = size
         faces.entries.parallelStream().forEach {
             val image = it.value
