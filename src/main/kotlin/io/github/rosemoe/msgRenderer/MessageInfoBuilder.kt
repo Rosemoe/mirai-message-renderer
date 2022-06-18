@@ -4,11 +4,26 @@ import net.mamoe.mirai.message.data.Message
 import net.mamoe.mirai.message.data.PlainText
 import java.awt.Image
 
+/**
+ * a tool to build messages easily
+ *
+ * for example:
+ *```
+ *buildMessageInfo{
+ *  "rosemoe" titled “肉丝” send "hello" at left
+ *  "rosemoe" send "title"
+ * }
+ *
+ *
+ * ```
+ */
 @Suppress("unused")
 class MessageInfoBuilder {
     private val messages: ArrayList<MessageInfo> = arrayListOf()
+
     val left = 0
     val right = 1
+
     infix fun String.titled(title: String): UserInfo {
         return UserInfo(nickname = this).titled(title)
     }
@@ -45,7 +60,7 @@ class MessageInfoBuilder {
         return result
     }
 
-    infix fun String.avtar(img: Image): UserInfo {
+    infix fun String.avatar(img: Image): UserInfo {
         return UserInfo(nickname = this).avatar(img)
     }
 
