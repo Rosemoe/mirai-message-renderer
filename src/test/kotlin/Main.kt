@@ -50,7 +50,7 @@ fun main(args: Array<String>) {
                 builder.add(MiraiImage("{00000000-0000-0000-0000-101F1EEBF5B5}.png"))
             } else {
                 // At
-                builder.add(At(Random.nextLong(10000L, 40000000000L)))
+                builder.add(At(Random.nextLong(10000L, 4000000000L)))
             }
         }
         messageInfos.add(MessageInfo(builder.build(), botInfo, Random.nextBoolean()))
