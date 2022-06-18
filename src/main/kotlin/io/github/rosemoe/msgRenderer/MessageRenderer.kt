@@ -18,7 +18,7 @@ class MessageRenderer(private val params: RenderParams = RenderParams()) {
         messages.forEach {
             val info = it.user
             layouts.add(
-                generateLayout(
+                generateGeneralLayout(
                     it.message,
                     dataProvider,
                     info.avatar,
@@ -63,7 +63,7 @@ class MessageRenderer(private val params: RenderParams = RenderParams()) {
         title: String? = null,
         isReceivedMessage: Boolean = true
     ): Image {
-        val layout = generateLayout(message, dataProvider, avatar, nickname, title, isReceivedMessage)
+        val layout = generateGeneralLayout(message, dataProvider, avatar, nickname, title, isReceivedMessage)
         val image = BufferedImage(layout.width, layout.height, BufferedImage.TYPE_4BYTE_ABGR)
         val g = image.createGraphics()
         g.enableAntialias()
@@ -72,7 +72,7 @@ class MessageRenderer(private val params: RenderParams = RenderParams()) {
         return image
     }
 
-    private fun generateLayout(
+    private fun generateGeneralLayout(
         message: Message,
         dataProvider: DataProvider,
         avatar: Image? = null,

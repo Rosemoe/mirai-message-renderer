@@ -10,4 +10,6 @@ class BackgroundRenderNode(x: Int, y: Int, val width: Int, val height: Int, val 
         g.fillRect(x, y, width, height)
     }
 
+    override fun movableX() = false
+
 }

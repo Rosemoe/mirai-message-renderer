@@ -9,4 +9,8 @@ abstract class ElementRenderNode(var x: Int, var y: Int) {
 
     abstract fun renderInto(g: Graphics2D)
 
+    open fun movableX() : Boolean = true
+
+    open fun movableY() : Boolean = true
+
 }

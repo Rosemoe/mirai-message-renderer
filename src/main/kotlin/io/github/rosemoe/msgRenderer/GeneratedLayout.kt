@@ -19,9 +19,10 @@ internal class GeneratedLayout(val width: Int, val height: Int, var x: Int = 0, 
         x += dx
         y += dy
         elements.forEach {
-            it.y += dy
-            // Background should not be translated
-            if (it !is BackgroundRenderNode) {
+            if (it.movableY()) {
+                it.y += dy
+            }
+            if (it.movableX()) {
                 it.x += dx
             }
         }
