@@ -46,7 +46,7 @@ object FaceStore {
     @Synchronized
     fun setFaceSize(size: Int) {
         this.size = size
-        faces.entries.parallelStream().forEach {
+        faces.entries.forEach {
             val image = it.value
             if (image != null && image.getWidth(null) != size) {
                 it.setValue(image.getScaledInstance(size, size, Image.SCALE_SMOOTH))
