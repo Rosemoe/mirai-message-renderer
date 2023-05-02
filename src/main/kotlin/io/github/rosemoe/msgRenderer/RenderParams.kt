@@ -8,27 +8,27 @@ data class RenderParams(
      * The width limitation for a single message piece. This includes the space of margins,
      * avatar, nickname and title
      */
-    val widthLimit: Int = 700,
+    val widthLimit: Int = 900,
     /**
      * The width of image generated when using [MessageRenderer.renderMessages]
      */
-    val multiMsgWidth: Int = 1000,
+    val multiMsgWidth: Int = 1200,
     /**
      * The width and height of avatar
      */
-    val avatarSize: Int = 64,
+    val avatarSize: Int = 80,
     /**
      * Typeface for nicknames
      */
-    val nicknameTypeface: Font = defaultFont.deriveFont(17f),
+    val nicknameTypeface: Font = defaultFont.deriveFont(18f),
     /**
      * Typeface for title texts
      */
-    val titleTypeface: Font = defaultFont.deriveFont(16f),
+    val titleTypeface: Font = defaultFont.deriveFont(17f),
     /**
      * Typeface for message content
      */
-    val messageTypeface: Font = defaultFont.deriveFont(19f),
+    val messageTypeface: Font = defaultFont.deriveFont(20f),
     /**
      * Margin commonly used in whole image
      */
